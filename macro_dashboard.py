@@ -6,6 +6,7 @@ from fredapi import Fred
 import yfinance as yf
 from datetime import datetime, timedelta
 
+
 # Initialize ALL session state variables first, before any other code
 if 'data_loaded' not in st.session_state:
     st.session_state['data_loaded'] = False
@@ -32,13 +33,13 @@ st.sidebar.header("Date Range Selection")
 
 # Get min and max dates from the S&P 500 data for the date picker
 spy_data = yf.download('^GSPC', start='1927-01-01')
-min_date = spy_data.index.min().date()
+min_date = datetime(1948, 1, 1).date() 
 max_date = spy_data.index.max().date()
 
 # Add date input widgets
 start_date = st.sidebar.date_input(
     "Start Date",
-    value=min_date + timedelta(days=365*10),  # Default to 10 years from min date
+    value=min_date,
     min_value=min_date,
     max_value=max_date
 )
@@ -52,53 +53,6 @@ end_date = st.sidebar.date_input(
 # Add a search button
 search_button = st.sidebar.button('Update Dashboard', type='primary')
 
-# Add Moving Average controls to sidebar
-st.sidebar.markdown("---")  # Add a separator
-st.sidebar.subheader("Moving Average Controls")
-
-# Multiselect for charts
-ma_charts = st.sidebar.multiselect(
-    "Select charts for Moving Average",
-    ["GDP Growth", "Unemployment Rate", "Inflation Rate", "S&P 500"],
-    help="Select which charts to add moving average to"
-)
-
-# MA period input
-ma_years = st.sidebar.number_input(
-    "Moving Average Period (Years)",
-    min_value=1,
-    max_value=20,
-    value=10,
-    help="Number of years for moving average calculation"
-)
-
-# Add buttons for MA controls
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    add_ma_button = st.button("Add MA", type="secondary")
-with col2:
-    clear_ma_button = st.button("Clear MA", type="secondary")
-
-# Initialize MA session state if not exists
-if 'show_ma' not in st.session_state:
-    st.session_state['show_ma'] = False
-if 'ma_settings' not in st.session_state:
-    st.session_state['ma_settings'] = {
-        'GDP Growth': False,
-        'Unemployment Rate': False,
-        'Inflation Rate': False,
-        'S&P 500': False
-    }
-
-# Handle MA buttons
-if add_ma_button:
-    st.session_state['show_ma'] = True
-    for chart in ma_charts:
-        st.session_state['ma_settings'][chart] = True
-if clear_ma_button:
-    st.session_state['show_ma'] = False
-    for chart in st.session_state['ma_settings']:
-        st.session_state['ma_settings'][chart] = False
 
 # Function to fetch and process economic data
 def get_economic_data(start_date, end_date):
@@ -142,7 +96,7 @@ def get_economic_data(start_date, end_date):
     inflation_yoy = inflation.pct_change(periods=12) * 100
     
     # Get S&P 500 data
-    spy = yf.download('^GSPC', start=start_date, end=end_date)
+    spy = yf.download('^GSPC', start=start_date-timedelta(days=365*10), end=end_date)
     # Calculate annual returns
     spy['Annual_Return'] = spy['Adj Close'].pct_change(periods=252) * 100
     # Calculate 10-year moving average of annual returns
@@ -204,22 +158,8 @@ try:
                          labels={'value': 'Growth Rate (%)', 'index': 'Date', 'variable': ''})
         fig_gdp.data[0].showlegend = False
         
-        # Add MA if selected
-        if st.session_state['ma_settings']['GDP Growth'] and st.session_state['show_ma']:
-            ma_period = int(ma_years * 4)  # Convert years to quarters for GDP
-            ma_series = gdp_growth.rolling(window=ma_period).mean()
-            fig_gdp.add_trace(
-                go.Scatter(
-                    x=ma_series.index,
-                    y=ma_series,
-                    name=f'{ma_years}Y MA',
-                    line=dict(color='rgba(255, 165, 0, 0.8)', dash='dash'),
-                    showlegend=True
-                )
-            )
         # Add base customization
         fig_gdp.update_layout(
-            showlegend=st.session_state['show_ma'],  # Only show legend if MA is active
             hovermode='x unified',
             yaxis_tickformat='.1f',
             shapes=recession_periods
@@ -232,22 +172,8 @@ try:
                                  labels={'value': 'Rate (%)', 'index': 'Date', 'variable': ''})
         fig_unemployment.data[0].showlegend = False
         
-        # Add MA if selected
-        if st.session_state['ma_settings']['Unemployment Rate'] and st.session_state['show_ma']:
-            ma_period = int(ma_years * 12)  # Convert years to months
-            ma_series = unemployment_rate.rolling(window=ma_period).mean()
-            fig_unemployment.add_trace(
-                go.Scatter(
-                    x=ma_series.index,
-                    y=ma_series,
-                    name=f'{ma_years}Y MA',
-                    line=dict(color='rgba(255, 165, 0, 0.8)', dash='dash'),
-                    showlegend=True
-                )
-            )
         # Add base customization
         fig_unemployment.update_layout(
-            showlegend=st.session_state['show_ma'],  # Only show legend if MA is active
             hovermode='x unified',
             yaxis_tickformat='.1f',
             shapes=recession_periods
@@ -260,22 +186,8 @@ try:
                               labels={'value': 'Rate (%)', 'index': 'Date', 'variable': ''})
         fig_inflation.data[0].showlegend = False
         
-        # Add MA if selected
-        if st.session_state['ma_settings']['Inflation Rate'] and st.session_state['show_ma']:
-            ma_period = int(ma_years * 12)  # Convert years to months
-            ma_series = inflation_rate.rolling(window=ma_period).mean()
-            fig_inflation.add_trace(
-                go.Scatter(
-                    x=ma_series.index,
-                    y=ma_series,
-                    name=f'{ma_years}Y MA',
-                    line=dict(color='rgba(255, 165, 0, 0.8)', dash='dash'),
-                    showlegend=True
-                )
-            )
         # Add base customization
         fig_inflation.update_layout(
-            showlegend=st.session_state['show_ma'],  # Only show legend if MA is active
             hovermode='x unified',
             yaxis_tickformat='.1f',
             shapes=recession_periods
@@ -283,56 +195,14 @@ try:
         st.plotly_chart(fig_inflation, use_container_width=True)
 
         # S&P 500 Returns Section
-        st.subheader("S&P 500 Returns (Yearly) ")
         
-        # Create a figure with two subplots
-        fig_spy = go.Figure()
-        
-        # Add annual returns histogram
-        fig_spy.add_trace(
-            go.Histogram(
-                x=spy_data['Annual_Return'],
-                name='Annual Returns Distribution',
-                nbinsx=50,
-                showlegend=False
-            )
-        )
-        
-        # Add MA if selected
-        if st.session_state['ma_settings']['S&P 500'] and st.session_state['show_ma']:
-            ma_period = int(ma_years * 252)  # Convert years to trading days
-            ma_series = spy_data['Annual_Return'].rolling(window=ma_period).mean()
-            fig_spy.add_trace(
-                go.Scatter(
-                    x=spy_data.index,
-                    y=ma_series,
-                    name=f'{ma_years}Y MA',
-                    line=dict(color='rgba(255, 165, 0, 0.8)', dash='dash'),
-                    showlegend=True
-                )
-            )
-        
-        # Customize the chart
-        fig_spy.update_layout(
-            title='S&P 500 Annual Returns Distribution',
-            showlegend=st.session_state['show_ma'],
-            hovermode='x unified',
-            yaxis_tickformat='.1f',
-            xaxis_title='Annual Return (%)',
-            yaxis_title='Frequency',
-            shapes=recession_periods,
-            height=400
-        )
-        
-        st.plotly_chart(fig_spy, use_container_width=True)
-        
-        # Add the 10Y MA Return chart (separate chart)
-        fig_spy_ma = px.line(spy_data, 
-                          x=spy_data.index,
-                          y='10Y_MA_Return',
-                          title='S&P 500 10-Year Moving Average Annual Return',
-                          labels={'10Y_MA_Return': 'Annual Return (%)', 
-                                 'index': 'Date'})
+        # Add the 10Y MA Return chart only
+        fig_spy_ma = px.line(spy_data[start_date:], # Only plot data from start_date onwards
+                             x=spy_data[start_date:].index,
+                             y='10Y_MA_Return',
+                             title='S&P 500 10-Year Moving Average Annual Return',
+                             labels={'10Y_MA_Return': 'Annual Return (%)', 
+                                    'index': 'Date'})
         
         # Customize the chart
         fig_spy_ma.update_layout(
