@@ -267,6 +267,33 @@ try:
         *Note: This is a simplified analysis and may not capture all economic nuances. For a more comprehensive assessment, consider additional indicators and economic models.*  
         
         """)
+        # Notes 
+        st.subheader("Notes")
+        st.markdown("""
+        #### 10 Key Indicators of a Cycle Top
+
+        1. **Excessive Debt** - Debt levels become unsustainable across households, businesses, and governments
+
+        2. **Overvalued Assets** - Asset prices like stocks and real estate detach from fundamentals, driven by speculation
+
+        3. **Tight Monetary Policy** - Central banks raise interest rates and tighten credit to curb overheating
+
+        4. **Rising Inflation** - Persistent inflation above target levels strains growth and profitability
+
+        5. **Market Euphoria** - Overconfidence and speculative frenzy dominate with "this time is different" narratives
+
+        6. **Wealth Inequality** - Widening gaps in wealth fuel political and social tensions, impacting stability
+
+        7. **Overheating Sectors** - Overinvestment leads to excess capacity or bubbles in key industries
+
+        8. **Geopolitical Risks** - Trade wars, political unrest, or global tensions disrupt economic stability
+
+        9. **Productivity Stagnation** - Growth relies on debt and speculation instead of real productivity gains
+
+        10. **Credit Contraction** - Slowing credit growth, rising defaults, and tighter lending signal the cycle's peak
+
+        """)
+
 
 except Exception as e:
     st.error(f"Error fetching data: {str(e)}") 
