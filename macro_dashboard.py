@@ -5,6 +5,7 @@ import pandas as pd
 from fredapi import Fred
 import yfinance as yf
 from datetime import datetime, timedelta
+import os
 
 
 # Initialize ALL session state variables first, before any other code
@@ -20,6 +21,8 @@ if 'spy_data' not in st.session_state:
     st.session_state['spy_data'] = None
 if 'recession_periods' not in st.session_state:
     st.session_state['recession_periods'] = None
+if 'ism_data' not in st.session_state:
+    st.session_state['ism_data'] = None
 
 # Set up the page configuration
 st.set_page_config(page_title="Economic Cycle Dashboard", layout="wide")
@@ -56,53 +59,88 @@ search_button = st.sidebar.button('Update Dashboard', type='primary')
 
 # Function to fetch and process economic data
 def get_economic_data(start_date, end_date):
-    # Get recession data
-    recession_data = fred.get_series('USREC', observation_start=start_date, observation_end=end_date)
-    recession_periods = []
-    
-    # Find recession start and end dates
-    in_recession = False
-    rec_start = None
-    
-    for date, value in recession_data.items():
-        if value == 1 and not in_recession:
-            rec_start = date
-            in_recession = True
-        elif value == 0 and in_recession:
-            recession_periods.append(dict(
-                type="rect",
-                xref="x",
-                yref="paper",
-                x0=rec_start,
-                x1=date,
-                y0=0,
-                y1=1,
-                fillcolor="LightGray",
-                opacity=0.3,
-                layer="below",
-                line_width=0,
-            ))
-            in_recession = False
-    
-    # Get GDP growth rate (Quarterly)
-    gdp = fred.get_series('GDP', observation_start=start_date, observation_end=end_date)
-    gdp_pct_change = gdp.pct_change() * 100
-    
-    # Get Unemployment Rate (Monthly)
-    unemployment = fred.get_series('UNRATE', observation_start=start_date, observation_end=end_date)
-    
-    # Get Inflation Rate (CPI, Monthly)
-    inflation = fred.get_series('CPIAUCSL', observation_start=start_date, observation_end=end_date)
-    inflation_yoy = inflation.pct_change(periods=12) * 100
-    
-    # Get S&P 500 data
-    spy = yf.download('^GSPC', start=start_date-timedelta(days=365*10), end=end_date)
-    # Calculate annual returns
-    spy['Annual_Return'] = spy['Adj Close'].pct_change(periods=252) * 100
-    # Calculate 10-year moving average of annual returns
-    spy['10Y_MA_Return'] = spy['Annual_Return'].rolling(window=252*10).mean()
-    
-    return gdp_pct_change, unemployment, inflation_yoy, spy, recession_periods
+    try:
+        # Get recession data
+        recession_data = fred.get_series('USREC', observation_start=start_date, observation_end=end_date)
+        recession_periods = []
+        
+        # Find recession start and end dates
+        in_recession = False
+        rec_start = None
+        
+        for date, value in recession_data.items():
+            if value == 1 and not in_recession:
+                rec_start = date
+                in_recession = True
+            elif value == 0 and in_recession:
+                recession_periods.append(dict(
+                    type="rect",
+                    xref="x",
+                    yref="paper",
+                    x0=rec_start,
+                    x1=date,
+                    y0=0,
+                    y1=1,
+                    fillcolor="LightGray",
+                    opacity=0.3,
+                    layer="below",
+                    line_width=0,
+                ))
+                in_recession = False
+        
+        # Get GDP growth rate (Quarterly)
+        gdp = fred.get_series('GDP', observation_start=start_date, observation_end=end_date)
+        gdp_pct_change = gdp.pct_change() * 100
+        
+        # Get Unemployment Rate (Monthly)
+        unemployment = fred.get_series('UNRATE', observation_start=start_date, observation_end=end_date)
+        
+        # Get Inflation Rate (CPI, Monthly)
+        inflation = fred.get_series('CPIAUCSL', observation_start=start_date, observation_end=end_date)
+        inflation_yoy = inflation.pct_change(periods=12) * 100
+        
+        # Get S&P 500 data with specific error handling
+        try:
+            spy = yf.download('^GSPC', start=start_date-timedelta(days=365*10), end=end_date)
+            if spy.empty:
+                print("No S&P 500 data retrieved")
+                return None, None, None, None, None, None
+                
+            # Check if 'Adj Close' column exists
+            if 'Close' not in spy.columns:
+                print("'Close' column not found in S&P 500 data")
+                print(f"Available columns: {spy.columns.tolist()}")
+                return None, None, None, None, None, None
+                
+            # Calculate annual returns
+            spy['Annual_Return'] = spy['Close'].pct_change(periods=252) * 100
+            # Calculate 10-year moving average of annual returns
+            spy['10Y_MA_Return'] = spy['Annual_Return'].rolling(window=252*10).mean()
+            
+        except Exception as e:
+            print(f"Error processing S&P 500 data: {e}")
+            print(f"S&P 500 data shape: {spy.shape if 'spy' in locals() else 'Not downloaded'}")
+            return None, None, None, None, None, None
+
+        # Load ISM data from local file
+        try:
+            print("Attempting to load ISM data...")  # Debug print
+            ism_data = pd.read_csv('test_data.csv')
+            ism_data['time'] = pd.to_datetime(ism_data['time'], unit='s')  # 's' for seconds
+            ism_data.set_index('time', inplace=True)
+            # Filter for date range
+            ism_data = ism_data[start_date:end_date]
+            ism_data = ism_data["close"]
+            print(f"ISM data after filtering: {ism_data.shape}")  # Debug print
+        except Exception as e:
+            print(f"Error loading ISM data: {e}")
+            ism_data = None
+        
+        return gdp_pct_change, unemployment, inflation_yoy, spy, recession_periods, ism_data
+        
+    except Exception as e:
+        print(f"Error in get_economic_data: {e}")
+        return None, None, None, None, None, None
 
 # Main dashboard layout
 st.title("Economic Cycle Dashboard")
@@ -118,21 +156,29 @@ try:
         else:
             with st.spinner('Fetching data...'):
                 # Fetch data with date range
-                gdp_growth, unemployment_rate, inflation_rate, spy_data, recession_periods = get_economic_data(start_date, end_date)
-                st.session_state['data_loaded'] = True
-                st.session_state['gdp_growth'] = gdp_growth
-                st.session_state['unemployment_rate'] = unemployment_rate
-                st.session_state['inflation_rate'] = inflation_rate
-                st.session_state['spy_data'] = spy_data
-                st.session_state['recession_periods'] = recession_periods
+                gdp_growth, unemployment_rate, inflation_rate, spy_data, recession_periods, ism_data = get_economic_data(start_date, end_date)
+                
+                # Check if any data is None
+                if any(x is None for x in [gdp_growth, unemployment_rate, inflation_rate, spy_data]):
+                    st.error("Failed to fetch some economic data. Please try again.")
+                    st.session_state['data_loaded'] = False
+                else:
+                    st.session_state['data_loaded'] = True
+                    st.session_state['gdp_growth'] = gdp_growth
+                    st.session_state['unemployment_rate'] = unemployment_rate
+                    st.session_state['inflation_rate'] = inflation_rate
+                    st.session_state['spy_data'] = spy_data
+                    st.session_state['recession_periods'] = recession_periods
+                    st.session_state['ism_data'] = ism_data
 
-    # Use stored data for display if available
+    # Only proceed with display if data is loaded successfully
     if st.session_state['data_loaded']:
         gdp_growth = st.session_state['gdp_growth']
         unemployment_rate = st.session_state['unemployment_rate']
         inflation_rate = st.session_state['inflation_rate']
         spy_data = st.session_state['spy_data']
         recession_periods = st.session_state['recession_periods']
+        ism_data = st.session_state['ism_data']
         # Create three columns for the main metrics
         col1, col2, col3 = st.columns(3)
         
@@ -217,6 +263,51 @@ try:
         fig_spy_ma.add_hline(y=15, line_dash="dash", line_color="gray")
         
         st.plotly_chart(fig_spy_ma, use_container_width=True)
+
+
+        # ISM Manufacturing PMI Chart
+        print("ISM data in session state:", st.session_state['ism_data'] is not None)  # Debug print
+        if st.session_state['ism_data'] is not None:
+            print(f"ISM data shape: {st.session_state['ism_data'].shape}")  # Debug print
+            
+            fig_ism = px.line(ism_data, 
+                             title='ISM Manufacturing PMI',
+                             labels={'value': 'PMI', 'index': 'Date'})
+            fig_ism.data[0].showlegend = False
+            
+            # Debug prints
+            print(f"ISM data range: {ism_data.index.min()} to {ism_data.index.max()}")
+            print(f"First few rows of ISM data:\n{ism_data.head()}")
+
+            # Filter recession periods to match ISM data timeframe
+            filter_start_date = pd.to_datetime(ism_data.index.min())
+            filter_end_date = pd.to_datetime(ism_data.index.max())
+
+            # Debug print to verify
+            print(f"Start date type: {type(filter_start_date)}")
+            print(f"Start date value: {filter_start_date}")
+
+            # Filter recession periods
+            filtered_recession_periods = [item for item in recession_periods 
+                                        if filter_start_date <= pd.to_datetime(item['x1']) <= filter_end_date]
+            
+            # Add base customization
+            fig_ism.update_layout(
+                hovermode='x unified',
+                yaxis_tickformat='.1f',
+                shapes=filtered_recession_periods,
+                xaxis=dict(
+                    autorange=True,
+                    type='date'
+                ),
+                yaxis=dict(
+                    autorange=True
+            ))
+            
+            # Add reference line at 50 (expansion/contraction threshold)
+            fig_ism.add_hline(y=50, line_dash="dash", line_color="red")
+            
+            st.plotly_chart(fig_ism, use_container_width=True)
 
         # Simple cycle assessment
         st.subheader("Current Macro Outlook")
