@@ -23,6 +23,8 @@ if 'recession_periods' not in st.session_state:
     st.session_state['recession_periods'] = None
 if 'ism_data' not in st.session_state:
     st.session_state['ism_data'] = None
+if 'liquidity_data' not in st.session_state:
+    st.session_state['liquidity_data'] = None
 
 # Set up the page configuration
 st.set_page_config(page_title="Economic Cycle Dashboard", layout="wide")
@@ -142,6 +144,43 @@ def get_economic_data(start_date, end_date):
         print(f"Error in get_economic_data: {e}")
         return None, None, None, None, None, None
 
+# Add this function after the get_economic_data function
+def load_liquidity_data(start_date, end_date):
+    try:
+        # List of CSV files and their corresponding central banks
+        cb_files = {
+            'USCBBS.csv': 'FED',
+            'CNCBBS.csv': 'PBOC',
+            'JPCBBS.csv': 'BOJ',
+            'EUCBBS.csv': 'ECB',
+            'GBCBBS.csv': 'BOE'
+        }
+        
+        # Initialize an empty list to store dataframes
+        dfs = []
+        
+        # Read and process each CSV file
+        for file, bank in cb_files.items():
+            df = pd.read_csv(file)
+            df = df[['time', 'close']]  # Select only time and close columns
+            df['time'] = pd.to_datetime(df['time'], unit='s')  # Convert time to datetime
+            df.set_index('time', inplace=True)
+            df.columns = [bank]  # Rename close column to bank name
+            dfs.append(df)
+        
+        # Combine all dataframes
+        combined_df = pd.concat(dfs, axis=1)
+        combined_df = combined_df.fillna(method='ffill')  # Forward fill missing values
+            
+        # Filter for date range
+        combined_df = combined_df[start_date:end_date]
+        
+        return combined_df
+        
+    except Exception as e:
+        print(f"Error loading liquidity data: {e}")
+        return None
+
 # Main dashboard layout
 st.title("Economic Cycle Dashboard")
 
@@ -157,9 +196,9 @@ try:
             with st.spinner('Fetching data...'):
                 # Fetch data with date range
                 gdp_growth, unemployment_rate, inflation_rate, spy_data, recession_periods, ism_data = get_economic_data(start_date, end_date)
-                
+                liquidity_data = load_liquidity_data(start_date, end_date)
                 # Check if any data is None
-                if any(x is None for x in [gdp_growth, unemployment_rate, inflation_rate, spy_data]):
+                if any(x is None for x in [gdp_growth, unemployment_rate, inflation_rate, spy_data, ism_data, liquidity_data]):
                     st.error("Failed to fetch some economic data. Please try again.")
                     st.session_state['data_loaded'] = False
                 else:
@@ -170,6 +209,7 @@ try:
                     st.session_state['spy_data'] = spy_data
                     st.session_state['recession_periods'] = recession_periods
                     st.session_state['ism_data'] = ism_data
+                    st.session_state['liquidity_data'] = liquidity_data
 
     # Only proceed with display if data is loaded successfully
     if st.session_state['data_loaded']:
@@ -179,6 +219,7 @@ try:
         spy_data = st.session_state['spy_data']
         recession_periods = st.session_state['recession_periods']
         ism_data = st.session_state['ism_data']
+        liquidity_data = st.session_state['liquidity_data']
         # Create three columns for the main metrics
         col1, col2, col3 = st.columns(3)
         
@@ -309,6 +350,38 @@ try:
             
             st.plotly_chart(fig_ism, use_container_width=True)
 
+        # Add this code where you want to display the liquidity chart (after the ISM chart)
+        if st.session_state['liquidity_data'] is not None:
+
+            print(liquidity_data.head())
+            # Create the liquidity chart
+            fig_liquidity = go.Figure()
+            
+            
+           
+            fig_liquidity = go.Figure()
+            for bank in ['FED', 'PBOC', 'BOJ', 'ECB', 'BOE']:
+                fig_liquidity.add_trace(
+                    go.Scatter(
+                        x=liquidity_data.index,
+                        y=liquidity_data[bank],
+                        name=bank,
+                        stackgroup='one'  # This creates a stacked area chart
+                    )
+                )
+            
+            # Customize the chart
+            fig_liquidity.update_layout(
+                title='Central Bank Policy Liquidity',
+                hovermode='x unified',
+                yaxis_title='Balance Sheet Size',
+                showlegend=True,
+                shapes=recession_periods
+            )
+            
+            st.plotly_chart(fig_liquidity, use_container_width=True)
+
+
         # Simple cycle assessment
         st.subheader("Current Macro Outlook")
         st.markdown("""
@@ -384,6 +457,7 @@ try:
         10. **Credit Contraction** - Slowing credit growth, rising defaults, and tighter lending signal the cycle's peak
 
         """)
+
 
 
 except Exception as e:
