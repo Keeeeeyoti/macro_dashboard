@@ -16,23 +16,25 @@ def convert_to_usd(csv_path, source_currency):
     try:
         # Read the CSV file
         df = pd.read_csv(csv_path)
+        
         df['time'] = pd.to_datetime(df['time'], unit='s')
         df.set_index('time', inplace=True)
         
-        # Construct forex pair symbol
-        forex_symbol = f"{source_currency}USD=X"
-        
-        # Download exchange rate data
-        forex_data = yf.download(forex_symbol, start=df.index.min(), end=df.index.max())
-        
-        # Resample exchange rate data to match input data frequency
-        forex_rates = forex_data['Close'].reindex(df.index, method='bfill').squeeze()  # Get only the 'Close' column
-        print(forex_rates)
+        if source_currency != 'USD':    
+            # Construct forex pair symbol
+            forex_symbol = f"{source_currency}USD=X"
+            
+            # Download exchange rate data
+            forex_data = yf.download(forex_symbol, start=df.index.min(), end=df.index.max())
+            
+            # Resample exchange rate data to match input data frequency
+            forex_rates = forex_data['Close'].reindex(df.index, method='bfill').squeeze()  # Get only the 'Close' column
+            print(forex_rates)
 
-        df['close_usd'] = df['close'] * forex_rates
+            df['close'] = df['close'] * forex_rates
 
         
-        df= df[["close_usd"]]
+        df= df[["close"]]
         # Create output filename by inserting '_USD' before the file extension
         output_path = csv_path.rsplit('.', 1)[0] + '_USD.csv'
         
@@ -53,5 +55,6 @@ jpcbbs_df = convert_to_usd('JPCBBS.csv', 'JPY')
 cncbbs_df = convert_to_usd('CNCBBS.csv', 'CNY')
 eucbbs_df = convert_to_usd('EUCBBS.csv', 'EUR') 
 gbcbbs_df = convert_to_usd('GBCBBS.csv', 'GBP')
+uscbbs_df = convert_to_usd('USCBBS.csv', 'USD')
 
 

@@ -18,3 +18,12 @@ Liquidity: central bank balance sheet from US,CN, JP, UK, EU
 USCBBS, CNCBBS, JPCBBS, EUCBBS, GBCBBS
 
 Also a possibility to use tradinview charting tool, but need to use typescript/javascript.
+
+Add option to overlay sp500 chart on all the charts.
+
+some sort of metrics to show what percentage of the US market movement is driven by speculation vs fundamentals such as earnings vs debasement/inflation
+
+Debt metrics? need examine the relationship between debt and market cycle. So far not seeing too much connection
+
+market sentiment?
+

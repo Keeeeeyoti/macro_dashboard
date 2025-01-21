@@ -23,6 +23,10 @@ if 'recession_periods' not in st.session_state:
     st.session_state['recession_periods'] = None
 if 'ism_data' not in st.session_state:
     st.session_state['ism_data'] = None
+if 'central_bank_liquidity' not in st.session_state:
+    st.session_state['central_bank_liquidity'] = None
+if 'us_debt' not in st.session_state:
+    st.session_state['us_debt'] = None
 
 # Set up the page configuration
 st.set_page_config(page_title="Economic Cycle Dashboard", layout="wide")
@@ -104,13 +108,13 @@ def get_economic_data(start_date, end_date):
             spy = yf.download('^GSPC', start=start_date-timedelta(days=365*10), end=end_date)
             if spy.empty:
                 print("No S&P 500 data retrieved")
-                return None, None, None, None, None, None
+                return None, None, None, None, None, None, None, None
                 
             # Check if 'Adj Close' column exists
             if 'Close' not in spy.columns:
                 print("'Close' column not found in S&P 500 data")
                 print(f"Available columns: {spy.columns.tolist()}")
-                return None, None, None, None, None, None
+                return None, None, None, None, None, None, None, None
                 
             # Calculate annual returns
             spy['Annual_Return'] = spy['Close'].pct_change(periods=252) * 100
@@ -120,7 +124,7 @@ def get_economic_data(start_date, end_date):
         except Exception as e:
             print(f"Error processing S&P 500 data: {e}")
             print(f"S&P 500 data shape: {spy.shape if 'spy' in locals() else 'Not downloaded'}")
-            return None, None, None, None, None, None
+            return None, None, None, None, None, None, None, None
 
         # Load ISM data from local file
         try:
@@ -136,11 +140,59 @@ def get_economic_data(start_date, end_date):
             print(f"Error loading ISM data: {e}")
             ism_data = None
         
-        return gdp_pct_change, unemployment, inflation_yoy, spy, recession_periods, ism_data
+        # Load central bank liquidity data
+        try:
+            print("Attempting to load central bank data...")  # Debug print
+            fed_data = pd.read_csv('USCBBS_USD.csv')
+            pboc_data = pd.read_csv('CNCBBS_USD.csv')
+            ecb_data = pd.read_csv('EUCBBS_USD.csv')
+            boj_data = pd.read_csv('JPCBBS_USD.csv')
+            boe_data = pd.read_csv('GBCBBS_USD.csv')
+            print("Successfully loaded all CSV files")  # Debug print
+
+            # Convert time column and set index
+            for df in [fed_data, pboc_data, ecb_data, boj_data, boe_data]:
+                df['time'] = pd.to_datetime(df['time'], format="%Y-%m-%d")
+                df.set_index('time', inplace=True)
+            print("Successfully processed timestamps")  # Debug print
+
+            # Combine data
+            liquidity_df = pd.DataFrame()
+
+            liquidity_df['FED'] = fed_data['close']
+            liquidity_df['PBOC'] = pboc_data['close']
+            liquidity_df['ECB'] = ecb_data['close']
+            liquidity_df['BOJ'] = boj_data['close']
+            liquidity_df['BOE'] = boe_data['close']
+            
+            # Fill missing values using forward fill method instead of backward fill
+            liquidity_df = liquidity_df.ffill()
+            
+            print("Successfully combined data")  # Debug print
+            print(liquidity_df.head())
+
+            # Filter for date range
+            liquidity_df = liquidity_df.loc[start_date:end_date]
+            print(f"Data shape after filtering: {liquidity_df.shape}")  # Debug print
+            
+        except Exception as e:
+            print(f"Error loading central bank liquidity data: {e}")
+            liquidity_df = None
+
+        # Get US Federal Debt data (Total Public Debt)
+        try:
+            us_debt = fred.get_series('GFDEBTN', observation_start=start_date, observation_end=end_date)
+            # Convert to trillions for better readability
+            us_debt = us_debt / 1000000  # Convert from millions to trillions
+        except Exception as e:
+            print(f"Error loading US debt data: {e}")
+            us_debt = None
+
+        return gdp_pct_change, unemployment, inflation_yoy, spy, recession_periods, ism_data, liquidity_df, us_debt
         
     except Exception as e:
         print(f"Error in get_economic_data: {e}")
-        return None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None
 
 # Main dashboard layout
 st.title("Economic Cycle Dashboard")
@@ -156,7 +208,7 @@ try:
         else:
             with st.spinner('Fetching data...'):
                 # Fetch data with date range
-                gdp_growth, unemployment_rate, inflation_rate, spy_data, recession_periods, ism_data = get_economic_data(start_date, end_date)
+                gdp_growth, unemployment_rate, inflation_rate, spy_data, recession_periods, ism_data, liquidity_df, us_debt = get_economic_data(start_date, end_date)
                 
                 # Check if any data is None
                 if any(x is None for x in [gdp_growth, unemployment_rate, inflation_rate, spy_data]):
@@ -170,6 +222,8 @@ try:
                     st.session_state['spy_data'] = spy_data
                     st.session_state['recession_periods'] = recession_periods
                     st.session_state['ism_data'] = ism_data
+                    st.session_state['central_bank_liquidity'] = liquidity_df
+                    st.session_state['us_debt'] = us_debt
 
     # Only proceed with display if data is loaded successfully
     if st.session_state['data_loaded']:
@@ -179,6 +233,8 @@ try:
         spy_data = st.session_state['spy_data']
         recession_periods = st.session_state['recession_periods']
         ism_data = st.session_state['ism_data']
+        liquidity_df = st.session_state['central_bank_liquidity']
+        us_debt = st.session_state['us_debt']
         # Create three columns for the main metrics
         col1, col2, col3 = st.columns(3)
         
@@ -308,6 +364,101 @@ try:
             fig_ism.add_hline(y=50, line_dash="dash", line_color="red")
             
             st.plotly_chart(fig_ism, use_container_width=True)
+
+        # Central Bank Liquidity Chart
+        if st.session_state['central_bank_liquidity'] is not None:
+            liquidity_df = st.session_state['central_bank_liquidity']
+            
+            # Filter recession periods to match liquidity data timeframe
+            filter_start_date = pd.to_datetime(liquidity_df.index.min())
+            filter_end_date = pd.to_datetime(liquidity_df.index.max())
+            
+            # Filter recession periods
+            filtered_recession_periods = [item for item in recession_periods 
+                                        if filter_start_date <= pd.to_datetime(item['x1']) <= filter_end_date]
+            
+            # Create stacked area chart
+            fig_liquidity = go.Figure()
+            
+            # Add each central bank as a filled area
+            banks = ['BOE', 'BOJ', 'ECB', 'PBOC', 'FED']
+            colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+            
+            for bank, color in zip(banks, colors):
+                fig_liquidity.add_trace(
+                    go.Scatter(
+                        x=liquidity_df.index,
+                        y=liquidity_df[bank],
+                        name=bank,
+                        mode='lines',
+                        stackgroup='one',
+                        line=dict(width=0.5),
+                        fillcolor=color
+                    )
+                )
+
+            # Customize the chart
+            fig_liquidity.update_layout(
+                title='Central Bank Liquidity (USD)',
+                hovermode='x unified',
+                yaxis_title='USD',
+                showlegend=True,
+                legend=dict(
+                    yanchor="top",
+                    y=0.99,
+                    xanchor="left",
+                    x=0.01
+                ),
+                shapes=filtered_recession_periods  # Use filtered recession periods
+            )
+            
+            st.plotly_chart(fig_liquidity, use_container_width=True)
+
+        # US Federal Debt Chart
+        if st.session_state['us_debt'] is not None:
+            us_debt = st.session_state['us_debt']
+            
+            # Calculate quarterly percentage change and its 10-year moving average
+            debt_pct_change = us_debt.pct_change() * 100
+            # Use 40 periods for quarterly data (4 quarters * 10 years)
+            debt_pct_change_10y_ma = debt_pct_change.rolling(window=40).mean()
+            
+            # Create the debt chart
+            fig_debt = go.Figure()
+            
+            fig_debt.add_trace(
+                go.Scatter(
+                    x=debt_pct_change_10y_ma.index,
+                    y=debt_pct_change_10y_ma,
+                    name='10Y MA of Debt Change',
+                    mode='lines',
+                    line=dict(width=2, color='#FF4B4B')
+                )
+            )
+
+            # Filter recession periods to match debt data timeframe
+            filter_start_date = pd.to_datetime(debt_pct_change_10y_ma.index.min())
+            filter_end_date = pd.to_datetime(debt_pct_change_10y_ma.index.max())
+            
+            filtered_recession_periods = [item for item in recession_periods 
+                                        if filter_start_date <= pd.to_datetime(item['x1']) <= filter_end_date]
+
+            # Add reference line at 0
+            fig_debt.add_hline(y=0, line_dash="dash", line_color="gray")
+
+            # Customize the chart
+            fig_debt.update_layout(
+                title='US Federal Debt Change - 10 Year Moving Average (%)',
+                hovermode='x unified',
+                yaxis_title='10Y MA Change (%)',
+                showlegend=False,
+                shapes=filtered_recession_periods,
+                yaxis=dict(
+                    tickformat='.1f'
+                )
+            )
+            
+            st.plotly_chart(fig_debt, use_container_width=True)
 
         # Simple cycle assessment
         st.subheader("Current Macro Outlook")
