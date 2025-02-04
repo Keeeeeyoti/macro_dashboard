@@ -194,42 +194,6 @@ def get_economic_data(start_date, end_date):
         print(f"Error in get_economic_data: {e}")
         return None, None, None, None, None, None, None, None
 
-# Add this function after the get_economic_data function
-def load_liquidity_data(start_date, end_date):
-    try:
-        # List of CSV files and their corresponding central banks
-        cb_files = {
-            'USCBBS.csv': 'FED',
-            'CNCBBS.csv': 'PBOC',
-            'JPCBBS.csv': 'BOJ',
-            'EUCBBS.csv': 'ECB',
-            'GBCBBS.csv': 'BOE'
-        }
-        
-        # Initialize an empty list to store dataframes
-        dfs = []
-        
-        # Read and process each CSV file
-        for file, bank in cb_files.items():
-            df = pd.read_csv(file)
-            df = df[['time', 'close']]  # Select only time and close columns
-            df['time'] = pd.to_datetime(df['time'], unit='s')  # Convert time to datetime
-            df.set_index('time', inplace=True)
-            df.columns = [bank]  # Rename close column to bank name
-            dfs.append(df)
-        
-        # Combine all dataframes
-        combined_df = pd.concat(dfs, axis=1)
-        combined_df = combined_df.fillna(method='ffill')  # Forward fill missing values
-            
-        # Filter for date range
-        combined_df = combined_df[start_date:end_date]
-        
-        return combined_df
-        
-    except Exception as e:
-        print(f"Error loading liquidity data: {e}")
-        return None
 
 # Main dashboard layout
 st.title("Economic Cycle Dashboard")
@@ -248,7 +212,7 @@ try:
                 gdp_growth, unemployment_rate, inflation_rate, spy_data, recession_periods, ism_data, liquidity_df, us_debt = get_economic_data(start_date, end_date)
                 
                 # Check if any data is None
-                if any(x is None for x in [gdp_growth, unemployment_rate, inflation_rate, spy_data, ism_data, liquidity_data]):
+                if any(x is None for x in [gdp_growth, unemployment_rate, inflation_rate, spy_data, recession_periods, ism_data, liquidity_df, us_debt]):
                     st.error("Failed to fetch some economic data. Please try again.")
                     st.session_state['data_loaded'] = False
                 else:
