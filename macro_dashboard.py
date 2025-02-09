@@ -503,11 +503,9 @@ try:
         ))
 
         st.markdown("""
-        bullish baby  
-        asfdasdf  
-        asdfasd
+        
                     
-        *Note: This is a simplified analysis and may not capture all economic nuances. For a more comprehensive assessment, consider additional indicators and economic models.*  
+        *Note: The current macro outlook section is a demo and still being developed.*  
         
         """)
         # Notes 

@@ -7,11 +7,12 @@ The goal of this project is to assess the macro landscape for US financial marke
 
 ### Phase 1: Data Visualization & Analysis (Current)
 The initial phase focuses on delivering informative visualizations of key macro indicators:
-- GDP Growth & Business Cycle Indicators
-- Inflation Metrics & Price Stability
-- Employment & Labor Market Dynamics
+- GDP Growth 
+- Unemployment Rate
+- Inflation Rate 
 - Global Central Bank Balance Sheets & Liquidity Conditions
-- Manufacturing PMI & Leading Economic Indicators
+- Manufacturing PMI 
+- US Federal Debt
 
 ### Phase 2: Quantitative Risk Framework (Upcoming)
 Development of a proprietary recession probability model:
@@ -21,16 +22,17 @@ Development of a proprietary recession probability model:
 - Real-time probability updates as new data becomes available
 
 ## Data Sources
-- Federal Reserve Economic Data (FRED)
-- Institute for Supply Management (ISM)
-- Global Central Bank Statistics
-- Market Data Providers
+- Federal Reserve Economic Data (FRED): GDP Growth, Unemployment Rate, Inflation Rate, US Federal Debt
+- Yahoo Finance: S&P 500
 - TradingView: 
     ISM - USMPR
     Liquidity: central bank balance sheet from US, CN, JP, UK, EU - USCBBS, CNCBBS, JPCBBS, EUCBBS, GBCBBS
 
-## Methodology
-The analysis follows rigorous economic frameworks while incorporating modern market dynamics and policy evolution. All indicators are carefully selected for their historical significance and forward-looking capabilities.
+## Key Challenges/Considerations
+- Selecting the right indicators to capture the current macro landscape
+- Data Sourcing: Obtaining reliable and timely data for key indicators, particularly ISM, presented significant challenges.
+- Selecting the appropriate charting tool. Considered tradinview charting tool, but need to use typescript/javascript.
+- Explored the feature to overlay sp500 chart on all the charts - opted to not include it to optimise for loading speed and simple design.
 
 ## Demonstration
 
@@ -45,13 +47,8 @@ Notes:
 Recession definition
 https://www.nber.org/research/business-cycle-dating/business-cycle-dating-procedure-frequently-asked-questions
 
-Also a possibility to use tradinview charting tool, but need to use typescript/javascript.
 
-Add option to overlay sp500 chart on all the charts.
 
-some sort of metrics to show what percentage of the US market movement is driven by speculation vs fundamentals such as earnings vs debasement/inflation
 
-Debt metrics? need examine the relationship between debt and market cycle. So far not seeing too much connection
 
-market sentiment?
 
