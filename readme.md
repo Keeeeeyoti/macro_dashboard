@@ -34,8 +34,8 @@ The analysis follows rigorous economic frameworks while incorporating modern mar
 
 ## Demonstration
 
-![demonstration](demonstration 1.jpg)
-![demonstration](demonstration 2.jpg)
+![demonstration](demonstration1.jpg)
+![demonstration](demonstration2.jpg)
 
 
 ---
