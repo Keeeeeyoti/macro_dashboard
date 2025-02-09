@@ -32,6 +32,12 @@ Development of a proprietary recession probability model:
 ## Methodology
 The analysis follows rigorous economic frameworks while incorporating modern market dynamics and policy evolution. All indicators are carefully selected for their historical significance and forward-looking capabilities.
 
+## Demonstration
+
+![demonstration](demonstration1.jpg)
+![demonstration](demonstration2.jpg)
+
+
 ---
 
 Notes:
