@@ -21,7 +21,9 @@ Development of a proprietary recession probability model:
 - Normalized risk scale (0-100%) for cycle positioning
 - Real-time probability updates as new data becomes available
 
-## Data Sources
+## Resources Used
+Key library used: streamlit, plotly, pandas, fredapi, yfinance
+Data source:
 - Federal Reserve Economic Data (FRED): GDP Growth, Unemployment Rate, Inflation Rate, US Federal Debt
 - Yahoo Finance: S&P 500
 - TradingView: 
